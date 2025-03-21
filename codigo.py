@@ -1,20 +1,20 @@
 import serial
 import crcmod
 
-# Función para calcular el CRC-16/CCITT-False
-def calculate_crc(data):
-    crc16 = crcmod.mkCrcFun(0x11021, rev=False, initCrc=0xFFFF, xorOut=0x0000)
-    return crc16(data)
-
-# Configuración del puerto serial
-ser = serial.Serial('COM10', 57600, timeout=1)  # Ajusta el puerto y la velocidad
-
-while True:
-    # Leer una línea de texto desde el puerto serial
-    line = ser.readline().decode('ascii', errors='ignore').strip()
+class TramaProcessor:
+    def __init__(self, port, baudrate):
+        # Configuración del puerto serial
+        self.ser = serial.Serial(port, baudrate, timeout=1)
+        
+        # Configuración del CRC-16/CCITT-False
+        self.crc16 = crcmod.mkCrcFun(0x11021, rev=False, initCrc=0xFFFF, xorOut=0x0000)
     
-    # Verificar si se recibió una línea válida
-    if line:
+    def calculate_crc(self, data):
+        """Calcula el CRC-16/CCITT-False de los datos proporcionados."""
+        return self.crc16(data)
+    
+    def process_trama(self, line):
+        """Procesa una trama recibida y verifica su integridad."""
         print("\nTrama recibida (texto):", line)
         
         # Convertir el texto en una lista de bytes
@@ -38,7 +38,7 @@ while True:
             # Verificar el byte de inicio/fin
             if start_end == 0x7E and end_marker == 0x7E:
                 # Calcular el CRC de los bytes relevantes (sin inicio y fin)
-                crc_calculated = calculate_crc(bytes(bytes_list[1:5]))  # Bytes 1 a 4
+                crc_calculated = self.calculate_crc(bytes(bytes_list[1:5]))  # Bytes 1 a 4
                 
                 # Mostrar el checksum calculado y el recibido
                 print(f"\nChecksum calculado: {hex(crc_calculated)}")
@@ -67,3 +67,21 @@ while True:
                 print("Error: Byte de inicio/fin incorrecto")
         else:
             print("Error: Trama incompleta")
+    
+    def read_serial_data(self):
+        """Lee datos del puerto serial y procesa las tramas recibidas."""
+        while True:
+            # Leer una línea de texto desde el puerto serial
+            line = self.ser.readline().decode('ascii', errors='ignore').strip()
+            
+            # Verificar si se recibió una línea válida
+            if line:
+                self.process_trama(line)
+
+# Uso de la clase
+if __name__ == "__main__":
+    # Crear una instancia de TramaProcessor
+    processor = TramaProcessor('COM10', 57600)  # Ajusta el puerto y la velocidad
+    
+    # Iniciar la lectura de datos seriales
+    processor.read_serial_data()
